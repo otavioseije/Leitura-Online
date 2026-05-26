@@ -39,6 +39,11 @@ app.post("/api/translate", async (req, res) => {
       return;
     }
 
+    // Sanitize and normalize line breaks and excess whitespaces from PDF extraction artifacts
+    const cleanText = text.replace(/[\r\n]+/g, " ").replace(/\s+/g, " ").trim();
+    const cleanContextBefore = (contextBefore || "").replace(/[\r\n]+/g, " ").replace(/\s+/g, " ").trim();
+    const cleanContextAfter = (contextAfter || "").replace(/[\r\n]+/g, " ").replace(/\s+/g, " ").trim();
+
     const ai = getGeminiClient();
 
     // Determine target language name
@@ -53,9 +58,9 @@ app.post("/api/translate", async (req, res) => {
     }
 
     // Construct a rich prompt with optional immediate context around the word
-    let userPrompt = `Termo ou frase selecionada: "${text}"`;
-    if (contextBefore || contextAfter) {
-      userPrompt += `\n\nContexto no livro:\n... ${contextBefore || ""} [SELECIONADO: "${text}"] ${contextAfter || ""} ...`;
+    let userPrompt = `Termo ou frase selecionada: "${cleanText}"`;
+    if (cleanContextBefore || cleanContextAfter) {
+      userPrompt += `\n\nContexto no livro:\n... ${cleanContextBefore} [SELECIONADO: "${cleanText}"] ${cleanContextAfter} ...`;
     }
     userPrompt += `\n\nPor favor, traduza o termo acima. Forneça primeiro a tradução direta e formal para o idioma ${targetLangName}. Em seguida, adicione uma análise concisa do termo, focando no seu sentido histórico, literário ou esotérico apropriado, mantendo a sobriedade acadêmica.`;
 

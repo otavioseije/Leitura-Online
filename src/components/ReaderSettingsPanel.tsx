@@ -335,6 +335,9 @@ export const ReaderSettingsPanel: React.FC<ReaderSettingsPanelProps> = ({
                     </select>
                   </div>
                 )}
+                <div className="mt-4 p-2.5 bg-amber-500/5 border-l-2 border-amber-500 text-[10px] leading-relaxed text-stone-600 dark:text-stone-300 font-sans italic">
+                  <strong>Dica de Qualidade:</strong> Use o Google Chrome (vozes <em>"Google"</em>) ou Microsoft Edge (vozes <em>"Natural Online"</em>) para sintetizar uma voz humana perfeita por IA.
+                </div>
                 <p className="text-[10px] text-stone-500 dark:text-stone-400 font-serif italic leading-relaxed mt-2.5">
                   Dica: Vozes locais/nativas dependem do seu navegador e do sistema operacional ativo.
                 </p>

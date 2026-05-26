@@ -1,5 +1,5 @@
 import React, { useState, useRef } from "react";
-import { Book, ReadingProgress, ReaderSettings } from "../types";
+import { Book, ReadingProgress, ReaderSettings, THEMES } from "../types";
 import { 
   BookOpen, 
   Upload, 
@@ -11,7 +11,10 @@ import {
   BookMarked,
   Volume2,
   Globe,
-  Sliders
+  Sliders,
+  Sun,
+  Moon,
+  Loader2
 } from "lucide-react";
 
 interface ReaderDashboardProps {
@@ -23,6 +26,7 @@ interface ReaderDashboardProps {
   settings: ReaderSettings;
   onUpdateSettings: (updated: Partial<ReaderSettings>) => void;
   voices: SpeechSynthesisVoice[];
+  isProcessing?: boolean;
 }
 
 const LANGUAGES = [
@@ -43,6 +47,7 @@ export const ReaderDashboard: React.FC<ReaderDashboardProps> = ({
   settings,
   onUpdateSettings,
   voices,
+  isProcessing = false,
 }) => {
   const [isDragOver, setIsDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -53,6 +58,7 @@ export const ReaderDashboard: React.FC<ReaderDashboardProps> = ({
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
+    if (isProcessing) return;
     setIsDragOver(true);
   };
 
@@ -63,21 +69,23 @@ export const ReaderDashboard: React.FC<ReaderDashboardProps> = ({
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragOver(false);
+    if (isProcessing) return;
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
       const file = e.dataTransfer.files[0];
       const lowerName = file.name.toLowerCase();
-      const validExtensions = [".txt", ".md", ".json", ".csv", ".xml", ".html"];
+      const validExtensions = [".txt", ".md", ".json", ".csv", ".xml", ".html", ".pdf", ".docx", ".doc"];
       const isValid = validExtensions.some(ext => lowerName.endsWith(ext));
 
       if (isValid) {
         onUpload(file);
       } else {
-        alert("Por favor, envie um arquivo de texto plano (.txt, .md, .json, .csv, .xml, .html).");
+        alert("Por favor, envie um arquivo de texto, PDF ou Word (.txt, .md, .json, .csv, .xml, .html, .pdf, .docx, .doc).");
       }
     }
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (isProcessing) return;
     if (e.target.files && e.target.files.length > 0) {
       onUpload(e.target.files[0]);
     }
@@ -161,56 +169,97 @@ export const ReaderDashboard: React.FC<ReaderDashboardProps> = ({
     });
   };
 
+  const isDarkNow = THEMES[settings.theme]?.isDark || false;
+
+  const toggleDarkMode = () => {
+    if (isDarkNow) {
+      onUpdateSettings({ theme: "slate" });
+    } else {
+      onUpdateSettings({ theme: "charcoal" });
+    }
+  };
+
   return (
-    <div id="dashboard-view" className="max-w-4xl mx-auto px-6 py-10 md:py-16 animate-fade-in text-stone-900 dark:text-stone-100">
-      {/* Title & Concept */}
-      <header className="mb-12 text-center md:text-left border-b border-stone-200/80 dark:border-stone-800 pb-8">
-        <div className="inline-flex items-center gap-2 px-3 py-1 mb-6 rounded bg-stone-100 dark:bg-stone-900 text-stone-600 dark:text-stone-400 font-sans text-[10px] font-bold uppercase tracking-[0.2em] border border-stone-200 dark:border-stone-800">
-          <BookMarked className="w-3.5 h-3.5 text-stone-500" />
-          <span>SOPHIA INDEX / 0.1</span>
+    <div id="dashboard-view" className="w-full max-w-screen-lg mx-auto px-4 sm:px-6 md:px-8 py-6 md:py-12 animate-fade-in text-stone-900 dark:text-stone-100 overflow-x-hidden">
+      {/* Top action bar with Dark mode toggle & brand */}
+      <div className="flex items-center justify-between mb-8 border-b border-stone-200/40 dark:border-stone-800/60 pb-4">
+        <div className="font-sans text-[10px] tracking-widest text-stone-500 dark:text-stone-400 font-black uppercase flex items-center gap-1.5">
+          <BookMarked className="w-3.5 h-3.5 text-stone-400" />
+          <span>Escritório Filológico Acadêmico</span>
         </div>
+        <button
+          onClick={toggleDarkMode}
+          className="flex items-center gap-2 px-3 py-1.5 border-2 border-stone-900 bg-stone-900 text-stone-50 dark:border-stone-100 dark:bg-stone-100 dark:text-stone-950 text-[10px] font-sans font-black uppercase tracking-wider hover:opacity-90 cursor-pointer transition-all active:scale-95"
+          title={isDarkNow ? "Alternar para Modo Claro" : "Alternar para Modo Escuro"}
+        >
+          {isDarkNow ? (
+            <>
+              <Sun className="w-3.5 h-3.5 text-amber-500 animate-pulse" />
+              <span>Modo Claro</span>
+            </>
+          ) : (
+            <>
+              <Moon className="w-3.5 h-3.5 text-zinc-300 fill-zinc-300" />
+              <span>Modo Escuro</span>
+            </>
+          )}
+        </button>
+      </div>
+
+      {/* Title & Concept */}
+      <header className="mb-12 text-center md:text-left">
         <h1 className="font-serif text-5xl md:text-7xl font-black text-stone-900 dark:text-stone-50 tracking-tighter italic leading-none">
           Sophia Reader.
         </h1>
         <p className="mt-4 text-stone-600 dark:text-stone-400 font-serif italic text-base md:text-lg max-w-2xl leading-relaxed">
-          Seu estojo de leitura acadêmica offline. Carregue livros em formato <span className="font-mono bg-stone-200 dark:bg-stone-800 px-1 rounded text-xs text-stone-850 dark:text-stone-200">.txt</span>, <span className="font-mono bg-stone-200 dark:bg-stone-800 px-1 rounded text-xs text-stone-850 dark:text-stone-200">.md</span> ou <span className="font-mono bg-stone-200 dark:bg-stone-800 px-1 rounded text-xs text-stone-850 dark:text-stone-200">.json</span> localmente. Configure a voz do leitor de livros nativo e traduza conceitos eruditos em múltiplos idiomas pelo Gemini.
+          Seu estojo de leitura acadêmica universal. Carregue livros em formato <span className="font-mono bg-stone-205 dark:bg-stone-800 px-1 rounded text-xs text-stone-850 dark:text-stone-200">.txt</span>, <span className="font-mono bg-stone-205 dark:bg-stone-800 px-1 rounded text-xs text-stone-850 dark:text-stone-200">.pdf</span> ou <span className="font-mono bg-stone-205 dark:bg-stone-800 px-1 rounded text-xs text-stone-850 dark:text-stone-200">.docx</span> localmente. Configure a voz do leitor de livros nativo e traduza conceitos eruditos em múltiplos idiomas pelo Gemini.
         </p>
       </header>
 
-      {/* Upload Box */}
-      <div
-        id="upload-dropzone"
-        onDragOver={handleDragOver}
-        onDragLeave={handleDragLeave}
-        onDrop={handleDrop}
-        onClick={() => fileInputRef.current?.click()}
-        className={`relative mb-14 p-10 md:p-14 border-4 transition-all duration-300 cursor-pointer text-center select-none ${
-          isDragOver
-            ? "border-stone-900 bg-stone-100 scale-[0.99] dark:border-stone-100 dark:bg-stone-900"
-            : "border-stone-300 hover:border-stone-900 dark:border-stone-800 dark:hover:border-stone-350 bg-stone-100/30 hover:bg-stone-50/50 dark:bg-stone-950/30"
-        }`}
-      >
-        <input
-          type="file"
-          ref={fileInputRef}
-          onChange={handleFileChange}
-          accept=".txt,.md,.json,.csv,.xml,.html"
-          className="hidden"
-        />
-        <div className="flex flex-col items-center justify-center gap-4">
-          <div className="w-12 h-12 bg-stone-900 dark:bg-stone-100 rounded flex items-center justify-center text-stone-100 dark:text-stone-900 font-bold transition-transform group-hover:scale-105">
-            <Upload className="w-5 h-5" />
-          </div>
-          <div>
-            <p className="font-sans text-xs uppercase tracking-[0.25em] font-black text-stone-900 dark:text-stone-150">
-              Importar Novo Compêndio
-            </p>
-            <p className="mt-2.5 text-xs text-stone-500 dark:text-stone-400 font-serif italic max-w-md mx-auto leading-relaxed">
-              Arraste seu arquivo (.txt, .md, .json, etc.) para o estojo ou clique aqui para buscar. Processado de forma assíncrona inteiramente no navegador.
-            </p>
+      {/* Processing or Upload Box */}
+      {isProcessing ? (
+        <div id="processing-overlay" className="relative mb-14 p-12 md:p-16 border-4 border-dashed border-amber-500 bg-amber-50/5 dark:bg-amber-950/5 text-center">
+          <Loader2 className="w-10 h-10 text-amber-500 mx-auto mb-4 animate-spin" />
+          <h3 className="font-serif text-xl font-bold text-stone-900 dark:text-stone-100 italic">Extraindo Pergaminho &amp; Indexando Texto...</h3>
+          <p className="mt-2 text-xs text-stone-500 dark:text-stone-400 font-sans uppercase tracking-[0.2em] max-w-md mx-auto leading-relaxed">
+            Sua CPU local está decodificando e indexando a estrutura de capítulos. Aguarde um instante sob o silêncio do templo de Sophia.
+          </p>
+        </div>
+      ) : (
+        <div
+          id="upload-dropzone"
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
+          onClick={() => fileInputRef.current?.click()}
+          className={`relative mb-14 p-10 md:p-14 border-4 transition-all duration-300 cursor-pointer text-center select-none ${
+            isDragOver
+              ? "border-stone-900 bg-stone-100 scale-[0.99] dark:border-stone-100 dark:bg-stone-900"
+              : "border-stone-300 hover:border-stone-900 dark:border-stone-800 dark:hover:border-stone-350 bg-stone-100/30 hover:bg-stone-50/50 dark:bg-stone-950/30"
+          }`}
+        >
+          <input
+            type="file"
+            ref={fileInputRef}
+            onChange={handleFileChange}
+            accept=".txt,.md,.json,.csv,.xml,.html,.pdf,.docx,.doc"
+            className="hidden"
+          />
+          <div className="flex flex-col items-center justify-center gap-4">
+            <div className="w-12 h-12 bg-stone-900 dark:bg-stone-100 rounded flex items-center justify-center text-stone-100 dark:text-stone-900 font-bold transition-transform group-hover:scale-105">
+              <Upload className="w-5 h-5" />
+            </div>
+            <div>
+              <p className="font-sans text-xs uppercase tracking-[0.25em] font-black text-stone-900 dark:text-stone-150">
+                Importar Novo Compêndio
+              </p>
+              <p className="mt-2.5 text-xs text-stone-500 dark:text-stone-400 font-serif italic max-w-md mx-auto leading-relaxed">
+                Arraste seu arquivo (.txt, .md, .pdf, .docx, etc.) para o estojo ou clique para buscar. Processado de forma assíncrona inteiramente no navegador.
+              </p>
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* NOVO PAINEL DE CONTROLE DE VOZ NA ABA INICIAL */}
       <section className="mb-14 border-4 border-stone-900 dark:border-stone-100 bg-stone-100/50 dark:bg-stone-950/40 p-6 md:p-8">
@@ -328,6 +377,11 @@ export const ReaderDashboard: React.FC<ReaderDashboardProps> = ({
           </div>
         </div>
 
+        {/* Dica de Vozes Premium */}
+        <div className="mt-5 p-3.5 bg-amber-500/5 border-l-4 border-amber-500 text-[11px] leading-relaxed text-stone-600 dark:text-stone-300 font-sans italic">
+          <strong>💡 Dica de Leitura Realista:</strong> O sintetizador utiliza as vozes do seu dispositivo. Para usufruir de vozes ultra-realistas com inteligência artificial, recomendamos abrir o web app no navegador <strong>Google Chrome</strong> (e selecionar vozes iniciadas por <em>"Google português"</em>) ou no <strong>Microsoft Edge</strong> (e selecionar vozes online terminadas em <em>"Natural"</em> ou <em>"Online"</em>).
+        </div>
+
         {/* Teste Vocálico Instantâneo */}
         <div className="mt-6 pt-6 border-t border-stone-300 dark:border-stone-800 flex flex-col sm:flex-row gap-3 items-end">
           <div className="flex-1 w-full flex flex-col gap-1.5">
@@ -404,7 +458,7 @@ export const ReaderDashboard: React.FC<ReaderDashboardProps> = ({
                             onDeleteBook(book.id);
                           }
                         }}
-                        className="p-1.5 rounded text-stone-400 hover:text-stone-100 hover:bg-stone-900 dark:hover:bg-stone-100 dark:hover:text-stone-950 transition-all cursor-pointer opacity-0 group-hover:opacity-100 focus:opacity-100"
+                        className="p-1.5 rounded text-stone-400 hover:text-stone-900 dark:hover:text-stone-100 hover:bg-stone-200/50 dark:hover:bg-stone-850/60 transition-all cursor-pointer opacity-100 md:opacity-0 md:group-hover:opacity-100 md:focus:opacity-100 flex-shrink-0"
                         title="Remover livro"
                       >
                         <Trash2 className="w-4 h-4" />

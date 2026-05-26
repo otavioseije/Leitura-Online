@@ -39,6 +39,7 @@ export default function App() {
   // Layout UI controllers
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isChaptersOpen, setIsChaptersOpen] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
 
   // List of native speech voices
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
@@ -132,12 +133,33 @@ export default function App() {
   const loadNativeVoices = () => {
     if (typeof window !== "undefined" && window.speechSynthesis) {
       const allVoices = window.speechSynthesis.getVoices();
-      setVoices(allVoices);
+      
+      // Prioritize natural sounding Google Cloud and Microsoft online high-quality voices
+      const sortedVoices = [...allVoices].sort((a, b) => {
+        const aName = a.name.toLowerCase();
+        const bName = b.name.toLowerCase();
+        
+        // Google Cloud voices or Microsoft Natural online voices get high priority
+        const aIsPremium = aName.includes("google") || aName.includes("natural") || aName.includes("online");
+        const bIsPremium = bName.includes("google") || bName.includes("natural") || bName.includes("online");
+        
+        if (aIsPremium && !bIsPremium) return -1;
+        if (!aIsPremium && bIsPremium) return 1;
+        
+        // Then, default voices
+        if (a.default && !b.default) return -1;
+        if (!a.default && b.default) return 1;
+        
+        return a.name.localeCompare(b.name);
+      });
 
-      // Default fallback pt-BR voice
-      const defaultPt = allVoices.find((v) => v.lang.startsWith("pt") && v.default) ||
-                        allVoices.find((v) => v.lang.startsWith("pt")) ||
-                        allVoices[0];
+      setVoices(sortedVoices);
+
+      // Default fallback pt-BR voice from the prioritized list
+      const defaultPt = sortedVoices.find((v) => v.lang.startsWith("pt-BR") && (v.name.toLowerCase().includes("google") || v.name.toLowerCase().includes("natural"))) ||
+                        sortedVoices.find((v) => v.lang.startsWith("pt") && v.default) ||
+                        sortedVoices.find((v) => v.lang.startsWith("pt")) ||
+                        sortedVoices[0];
 
       setSettings((prev) => {
         if (!prev.ttsVoiceName && defaultPt) {
@@ -149,6 +171,7 @@ export default function App() {
   };
 
   const handleUploadBook = async (file: File) => {
+    setIsProcessing(true);
     try {
       const processed = await processTextFile(file);
       // Save inside IndexedDB catalog
@@ -157,6 +180,8 @@ export default function App() {
       await loadCatalog();
     } catch (error: any) {
       alert(error.message || "Erro ao fazer upload do livro.");
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -450,10 +475,10 @@ export default function App() {
   };
 
   return (
-    <div className={`min-h-screen flex flex-col transition-all duration-300 ${activeTheme.bg} ${activeTheme.text}`}>
+    <div className={`${view === "reader" ? "h-screen overflow-hidden" : "min-h-screen"} flex flex-col transition-all duration-300 ${activeTheme.bg} ${activeTheme.text}`}>
       {/* ----------------- DASHBOARD VIEW ----------------- */}
       {view === "dashboard" && (
-        <main className="flex-1 overflow-y-auto">
+        <main className="flex-1">
           <ReaderDashboard
             books={books}
             progresses={progresses}
@@ -463,6 +488,7 @@ export default function App() {
             settings={settings}
             onUpdateSettings={handleUpdateSettings}
             voices={voices}
+            isProcessing={isProcessing}
           />
         </main>
       )}
@@ -510,15 +536,15 @@ export default function App() {
               <button
                 id="playback-btn"
                 onClick={toggleTTS}
-                className={`py-1.5 px-3.5 text-[9px] uppercase tracking-widest font-sans font-black flex items-center gap-1.5 cursor-pointer transition-all ${
+                className={`py-1.5 px-2.5 sm:px-3.5 text-[9px] uppercase tracking-widest font-sans font-black flex items-center gap-1 cursor-pointer transition-all ${
                   isPlayingTTS
                     ? "bg-amber-400 border border-amber-500 text-stone-950"
                     : "bg-stone-900 text-stone-50 hover:bg-stone-800 dark:bg-stone-100 dark:text-stone-950 dark:hover:bg-stone-50"
                 }`}
                 title={isPlayingTTS ? "Pausar Leitura de Voz" : "Ler em voz alta"}
               >
-                {isPlayingTTS ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
-                <span>{isPlayingTTS ? "Lendo" : "Executar"}</span>
+                {isPlayingTTS ? <Pause className="w-3.5 h-3.5 animate-pulse" /> : <Play className="w-3.5 h-3.5" />}
+                <span className="hidden xs:inline">{isPlayingTTS ? "Lendo" : "Executar"}</span>
               </button>
 
               {currentParagraphIndex !== null && (
@@ -575,29 +601,42 @@ export default function App() {
           <div className="flex-1 flex overflow-hidden relative">
             {/* Sidebar Chapter Navigator overlay drawer list */}
             {isChaptersOpen && (
-              <div
-                id="chapters-sidebar-over"
-                className={`w-72 border-r-2 h-full flex flex-col z-30 transition-all duration-300 animate-slide-in ${activeTheme.panelBg} ${activeTheme.border}`}
-              >
-                <div className="px-6 py-4 border-b-2 flex items-center justify-between border-stone-300/40 dark:border-stone-800">
-                  <h4 className="font-sans font-bold text-[10px] flex items-center gap-1.5 uppercase tracking-widest text-stone-500 dark:text-stone-400">
-                    <BookOpenCheck className="w-4.5 h-4.5" />
-                    Índices do Compêndio
-                  </h4>
-                </div>
-                <div className="flex-1 overflow-y-auto py-2">
-                  {chapters.map((chapter) => (
+              <>
+                {/* Backdrop to dismiss chapters sidebar on smaller screens */}
+                <div
+                  onClick={() => setIsChaptersOpen(false)}
+                  className="md:hidden fixed inset-0 bg-black/40 backdrop-blur-xs z-30 transition-all cursor-pointer"
+                />
+                <div
+                  id="chapters-sidebar-over"
+                  className={`fixed md:static inset-y-0 left-0 w-72 border-r-2 h-full flex flex-col z-40 transition-transform duration-300 animate-slide-in shadow-2xl md:shadow-none ${activeTheme.panelBg} ${activeTheme.border}`}
+                >
+                  <div className="px-6 py-4 border-b-2 flex items-center justify-between border-stone-300/40 dark:border-stone-800">
+                    <h4 className="font-sans font-bold text-[10px] flex items-center gap-1.5 uppercase tracking-widest text-stone-500 dark:text-stone-400">
+                      <BookOpenCheck className="w-4.5 h-4.5" />
+                      Índices do Compêndio
+                    </h4>
                     <button
-                      key={chapter.id}
-                      onClick={() => handleJumpToChapter(chapter)}
-                      className="w-full text-left px-6 py-4 hover:bg-stone-200/40 dark:hover:bg-stone-800/40 transition-colors border-b border-stone-200 dark:border-stone-800/60 flex items-center justify-between gap-3 font-serif text-sm cursor-pointer"
+                      onClick={() => setIsChaptersOpen(false)}
+                      className="md:hidden p-1 px-2 border-2 border-stone-900 dark:border-stone-400 font-sans text-[9px] font-black uppercase tracking-wider hover:bg-stone-900 hover:text-white dark:hover:bg-white dark:hover:text-stone-950 cursor-pointer"
                     >
-                      <span className="truncate flex-1 italic font-semibold">{chapter.title}</span>
-                      <ChevronRight className="w-3.5 h-3.5 text-stone-400" />
+                      X
                     </button>
-                  ))}
+                  </div>
+                  <div className="flex-1 overflow-y-auto py-2">
+                    {chapters.map((chapter) => (
+                      <button
+                        key={chapter.id}
+                        onClick={() => handleJumpToChapter(chapter)}
+                        className="w-full text-left px-6 py-4 hover:bg-stone-200/40 dark:hover:bg-stone-800/40 transition-colors border-b border-stone-200 dark:border-stone-800/60 flex items-center justify-between gap-3 font-serif text-sm cursor-pointer"
+                      >
+                        <span className="truncate flex-1 italic font-semibold">{chapter.title}</span>
+                        <ChevronRight className="w-3.5 h-3.5 text-stone-400" />
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              </div>
+              </>
             )}
 
             {/* Immersive Text Reader Port */}
@@ -605,7 +644,7 @@ export default function App() {
               id="immersive-reader-desk"
               ref={scrollContainerRef}
               onScroll={handleScroll}
-              className="flex-1 overflow-y-auto px-6 py-12 md:py-16 scroll-smooth book-text-selection"
+              className="flex-1 overflow-y-auto px-4 sm:px-8 py-8 md:py-16 scroll-smooth book-text-selection"
             >
               <div
                 ref={textContainerRef}
@@ -636,7 +675,7 @@ export default function App() {
                       className={`book-para text-justify text-[1.08em] select-text transition-all duration-300 py-2.5 px-3 -mx-3 hover:bg-stone-200/20 dark:hover:bg-stone-800/10 ${
                         isAudiblyFocused
                           ? "bg-amber-100/60 text-stone-950 dark:bg-[#ebdcb9]/20 dark:text-[#f4efe2] ring-2 ring-stone-900 dark:ring-stone-100 border-l-4 border-stone-900 dark:border-stone-300"
-                          : ""
+                          : "text-stone-800 dark:text-stone-200"
                       }`}
                       onDoubleClick={() => {
                         // Double click parágrafo to trigger speech read from here instantly
