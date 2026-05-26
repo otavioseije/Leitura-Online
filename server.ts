@@ -33,7 +33,7 @@ function getGeminiClient(): GoogleGenAI {
 // Translate endpoint
 app.post("/api/translate", async (req, res) => {
   try {
-    const { text, contextBefore, contextAfter } = req.body;
+    const { text, contextBefore, contextAfter, targetLang } = req.body;
     if (!text || typeof text !== "string" || text.trim() === "") {
       res.status(400).json({ error: "Texto para tradução inválido." });
       return;
@@ -41,18 +41,29 @@ app.post("/api/translate", async (req, res) => {
 
     const ai = getGeminiClient();
 
+    // Determine target language name
+    let targetLangName = "português do Brasil";
+    if (targetLang) {
+      const langLower = targetLang.toLowerCase();
+      if (langLower.startsWith("en")) targetLangName = "inglês";
+      else if (langLower.startsWith("es")) targetLangName = "espanhol";
+      else if (langLower.startsWith("fr")) targetLangName = "francês";
+      else if (langLower.startsWith("de")) targetLangName = "alemão";
+      else if (langLower.startsWith("it")) targetLangName = "italiano";
+    }
+
     // Construct a rich prompt with optional immediate context around the word
     let userPrompt = `Termo ou frase selecionada: "${text}"`;
     if (contextBefore || contextAfter) {
       userPrompt += `\n\nContexto no livro:\n... ${contextBefore || ""} [SELECIONADO: "${text}"] ${contextAfter || ""} ...`;
     }
-    userPrompt += `\n\nPor favor, traduza o termo acima. Forneça primeiro a tradução direta e formal para o português do Brasil. Em seguida, adicione uma análise concisa do termo, focando no seu sentido histórico, literário ou esotérico apropriado, mantendo a sobriedade acadêmica.`;
+    userPrompt += `\n\nPor favor, traduza o termo acima. Forneça primeiro a tradução direta e formal para o idioma ${targetLangName}. Em seguida, adicione uma análise concisa do termo, focando no seu sentido histórico, literário ou esotérico apropriado, mantendo a sobriedade acadêmica.`;
 
     const response = await ai.models.generateContent({
       model: "gemini-3.5-flash",
       contents: userPrompt,
       config: {
-        systemInstruction: "Você é um tradutor acadêmico especializado em história e esoterismo. Traduza o termo selecionado mantendo o rigor terminológico da área, priorizando o contexto acadêmico e esotérico.",
+        systemInstruction: "Você é um tradutor acadêmico especializado em história, filosofia, filologia e esoterismo antiga. Traduza o termo selecionado mantendo o rigor terminológico da área, priorizando o contexto acadêmico e conceitual correspondente.",
         temperature: 0.3, // Lower temperature for more rigorous translation
       },
     });

@@ -20,15 +20,19 @@ export const ReaderSettingsPanel: React.FC<ReaderSettingsPanelProps> = ({
   const currentTheme = THEMES[settings.theme];
   const [activeTab, setActiveTab] = useState<"visual" | "auditivo">("visual");
 
-  // Filter voices according to selected gender approximation & Portuguese language
+  // Filter voices according to selected gender approximation & selected language
   const getFilteredVoices = () => {
-    // Standard language targets: Portuguese, English, Spanish
-    let filtered = voices;
-
-    // Fast-filter heuristic for pt-BR/pt-PT
-    const ptVoices = voices.filter((v) => v.lang.startsWith("pt"));
-    if (ptVoices.length > 0) {
-      filtered = ptVoices;
+    const targetLangCode = settings.ttsLang || "pt-BR";
+    const prefix = targetLangCode.split("-")[0];
+    let filtered = voices.filter((v) => v.lang.toLowerCase().startsWith(prefix));
+    
+    // Fallback if no voices for chosen lang
+    const fallbackPt = voices.filter((v) => v.lang.startsWith("pt"));
+    if (filtered.length === 0) {
+      filtered = fallbackPt;
+    }
+    if (filtered.length === 0) {
+      filtered = voices;
     }
 
     if (settings.ttsGender === "female") {
@@ -69,7 +73,7 @@ export const ReaderSettingsPanel: React.FC<ReaderSettingsPanelProps> = ({
       });
     }
 
-    return filtered.length > 0 ? filtered : ptVoices.length > 0 ? ptVoices : voices;
+    return filtered;
   };
 
   const filteredVoices = getFilteredVoices();
@@ -83,7 +87,7 @@ export const ReaderSettingsPanel: React.FC<ReaderSettingsPanelProps> = ({
         onUpdateSettings({ ttsVoiceName: filteredVoices[0].name });
       }
     }
-  }, [settings.ttsGender, voices]);
+  }, [settings.ttsGender, settings.ttsLang, voices]);
 
   if (!isOpen) return null;
 

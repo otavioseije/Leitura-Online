@@ -52,7 +52,21 @@ export default function App() {
     ttsSpeed: 1.0,
     ttsVoiceName: null,
     ttsGender: "any",
+    ttsLang: "pt-BR",
   });
+
+  const activeTheme = THEMES[settings.theme];
+
+  // Apply dark mode class to HTML/Body elements for Tailwind classes
+  useEffect(() => {
+    if (activeTheme.isDark) {
+      document.documentElement.classList.add("dark");
+      document.body.classList.add("dark");
+    } else {
+      document.documentElement.classList.remove("dark");
+      document.body.classList.remove("dark");
+    }
+  }, [settings.theme, activeTheme.isDark]);
 
   // Highlighted translation selections
   const [selectionDetails, setSelectionDetails] = useState<{
@@ -327,7 +341,7 @@ export default function App() {
 
     const textToSpeak = parsedParagraphs[index];
     const utterance = new SpeechSynthesisUtterance(textToSpeak);
-    utterance.lang = "pt-BR";
+    utterance.lang = settings.ttsLang || "pt-BR";
     utterance.rate = settings.ttsSpeed;
 
     // Match selected voice
@@ -427,8 +441,6 @@ export default function App() {
     speakParagraph(next);
   };
 
-  const activeTheme = THEMES[settings.theme];
-
   // Helper paragraph spacing styles classes
   const spacingClasses = {
     tight: "space-y-4 leading-relaxed",
@@ -448,6 +460,9 @@ export default function App() {
             onUpload={handleUploadBook}
             onSelectBook={handleSelectBook}
             onDeleteBook={handleDeleteBook}
+            settings={settings}
+            onUpdateSettings={handleUpdateSettings}
+            voices={voices}
           />
         </main>
       )}
@@ -698,6 +713,7 @@ export default function App() {
         contextBefore={selectionDetails?.contextBefore || ""}
         contextAfter={selectionDetails?.contextAfter || ""}
         themeIsDark={activeTheme.isDark}
+        targetLang={settings.ttsLang || "pt-BR"}
       />
     </div>
   );

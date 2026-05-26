@@ -27,6 +27,7 @@ export interface ReaderSettings {
   ttsSpeed: number;       // Web Speech API rate (0.5 to 2.0)
   ttsVoiceName: string | null; // Preference voice identifier
   ttsGender: "any" | "male" | "female"; // Hand-curated native speech filters
+  ttsLang: string;        // Language code filter, e.g., "pt-BR", "en-US", etc.
 }
 
 export const THEMES: Record<

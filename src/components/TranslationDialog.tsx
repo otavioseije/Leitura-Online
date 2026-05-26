@@ -8,6 +8,7 @@ interface TranslationDialogProps {
   themeIsDark: boolean;
   contextBefore?: string;
   contextAfter?: string;
+  targetLang: string;
 }
 
 export const TranslationDialog: React.FC<TranslationDialogProps> = ({
@@ -17,6 +18,7 @@ export const TranslationDialog: React.FC<TranslationDialogProps> = ({
   themeIsDark,
   contextBefore = "",
   contextAfter = "",
+  targetLang,
 }) => {
   const [loading, setLoading] = useState(false);
   const [translation, setTranslation] = useState<string | null>(null);
@@ -53,6 +55,7 @@ export const TranslationDialog: React.FC<TranslationDialogProps> = ({
           text: text,
           contextBefore: contextBefore.slice(-100), // Grab immediate neighboring text
           contextAfter: contextAfter.slice(0, 100),
+          targetLang: targetLang,
         }),
       });
 
@@ -88,12 +91,15 @@ export const TranslationDialog: React.FC<TranslationDialogProps> = ({
     }
 
     const utterance = new SpeechSynthesisUtterance(translation);
-    utterance.lang = "pt-BR";
+    utterance.lang = targetLang || "pt-BR";
     
-    // Find native pt-BR voice if available
+    // Find voice matching the target language prefix
     const voices = window.speechSynthesis.getVoices();
-    const ptVoice = voices.find(v => v.lang.startsWith("pt"));
-    if (ptVoice) utterance.voice = ptVoice;
+    const langPrefix = (targetLang || "pt-BR").split("-")[0];
+    const matchVoice = voices.find(v => v.lang.startsWith(langPrefix)) || voices.find(v => v.lang.startsWith("pt")) || voices[0];
+    if (matchVoice) {
+      utterance.voice = matchVoice;
+    }
 
     utterance.onend = () => setIsPlaying(false);
     utterance.onerror = () => setIsPlaying(false);
