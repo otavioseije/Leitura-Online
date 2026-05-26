@@ -1,0 +1,6 @@
+{
+  "name": "Leitor de Livros Minimalista",
+  "description": "Um aplicativo web minimalista para leitura de livros (.txt) com tradução por Gemini e leitura em voz alta nativa.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
